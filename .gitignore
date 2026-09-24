@@ -1,0 +1,20 @@
+# Xcode
+.DS_Store
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+
+# User-scanned content: never commit
+ScannedBooks/
+ScanCache/
+OCRCache/
+*.heic
+*.tiff
+
+# Large/local PDFs are user data, not source
+*.pdf
+
+# Temporary
+*.tmp
+*.log
