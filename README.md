@@ -56,3 +56,19 @@ Documents/
 6. 책 곡면(dewarp) 보정
 7. 북마크/주석/전체 텍스트 검색
 8. iCloud 동기화
+
+
+## v0.2 추가
+
+- `BookScannerReader.xcodeproj` 포함: Mac의 Xcode에서 바로 열 수 있는 프로젝트 구조
+- 카메라 권한 설명(`Resources/Info.plist`) 포함
+- GitHub Actions 빌드 검사(`.github/workflows/ios-build.yml`) 포함
+- 기본 Bundle ID: `com.jssung0326.BookScannerReader` (필요 시 Xcode Signing & Capabilities에서 변경)
+
+### iPhone에서 실행
+1. Mac에서 저장소를 Clone합니다.
+2. `BookScannerReader.xcodeproj`를 Xcode로 엽니다.
+3. Target > Signing & Capabilities에서 자신의 Apple ID Team을 선택합니다.
+4. iPhone을 연결하고 Run을 누릅니다.
+
+> GitHub에서 TestFlight까지 자동 배포하려면 Apple Developer Program/App Store Connect 설정과 서명용 자격 증명이 추가로 필요합니다.

@@ -1,0 +1,308 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F3E791FCA5C00A4E57F35FA7 /* BookScannerReaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23E6B9A3275B8D31D8AC84DA /* BookScannerReaderApp.swift */; };
+		1B7AC75DD02EB5E1D758E946 /* Book.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF02A5A68F55ABA26EE4AD95 /* Book.swift */; };
+		5CAFD799BFF59C0E450551B9 /* PageRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C349DB1F13A050EC34B6C3 /* PageRecord.swift */; };
+		371DB709D6D072CD7073CFE9 /* ScanProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78F7B04E0049D5286CF9963E /* ScanProfile.swift */; };
+		D21FB3355BEB2C4C8180D651 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E665A74886426E67EDE620 /* LibraryStore.swift */; };
+		62010A2B8FF4317FBC002C04 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631013383587230485CE92E3 /* OCRService.swift */; };
+		95A6EF89A4EA0C9AB8E52DEB /* PDFService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 688E862356D329789BA97CEB /* PDFService.swift */; };
+		D5D852BD2A13B61D88BB1C2C /* PageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4EF92EC72E4C36786D0EAEA /* PageStore.swift */; };
+		888835F4884045636F292157 /* ScanProcessingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D340FF4E5760CA6587549600 /* ScanProcessingService.swift */; };
+		5BF60FC69C83AADC5FAA370E /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E0C2E38AED157E9AF8B3B3 /* SpeechService.swift */; };
+		81E296736C3FE5C387BD8C49 /* StoragePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE39A622632F336623B98F6 /* StoragePaths.swift */; };
+		E365F9CF85AC06270361837C /* BookReaderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D681411C9F9C92B3B5113C88 /* BookReaderScreen.swift */; };
+		B7EA120097B3D3F9B2395CA4 /* DocumentScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E660F43010B1565B6B9875E7 /* DocumentScannerView.swift */; };
+		0F82C7CA27D9261D5F12C127 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E088065C176514F507234549 /* LibraryView.swift */; };
+		B950B8A009D2B467E04EC972 /* NewScanBookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956EADFFD9BBDB605D0ADB92 /* NewScanBookView.swift */; };
+		CFAD2E7EB68280E33B20EDD0 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E6EFE3BBECF34DBFB0A25BB /* PDFReaderView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		23E6B9A3275B8D31D8AC84DA /* BookScannerReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookScannerReaderApp.swift; sourceTree = "<group>"; };
+		FF02A5A68F55ABA26EE4AD95 /* Book.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Book.swift; sourceTree = "<group>"; };
+		14C349DB1F13A050EC34B6C3 /* PageRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRecord.swift; sourceTree = "<group>"; };
+		78F7B04E0049D5286CF9963E /* ScanProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProfile.swift; sourceTree = "<group>"; };
+		C7E665A74886426E67EDE620 /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		631013383587230485CE92E3 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
+		688E862356D329789BA97CEB /* PDFService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFService.swift; sourceTree = "<group>"; };
+		B4EF92EC72E4C36786D0EAEA /* PageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageStore.swift; sourceTree = "<group>"; };
+		D340FF4E5760CA6587549600 /* ScanProcessingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProcessingService.swift; sourceTree = "<group>"; };
+		81E0C2E38AED157E9AF8B3B3 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
+		DCE39A622632F336623B98F6 /* StoragePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoragePaths.swift; sourceTree = "<group>"; };
+		D681411C9F9C92B3B5113C88 /* BookReaderScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookReaderScreen.swift; sourceTree = "<group>"; };
+		E660F43010B1565B6B9875E7 /* DocumentScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerView.swift; sourceTree = "<group>"; };
+		E088065C176514F507234549 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		956EADFFD9BBDB605D0ADB92 /* NewScanBookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewScanBookView.swift; sourceTree = "<group>"; };
+		4E6EFE3BBECF34DBFB0A25BB /* PDFReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReaderView.swift; sourceTree = "<group>"; };
+		EF431FED19380A0D7D5E65CE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		3F23BDE21DC165B74BB1DDED /* BookScannerReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BookScannerReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		196738691649AC2E2FD321A6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		C165EB5F1BF36CBC32477D82 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				23E6B9A3275B8D31D8AC84DA /* BookScannerReaderApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		ABC08E9AF421A1EC97561484 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				FF02A5A68F55ABA26EE4AD95 /* Book.swift */,
+				14C349DB1F13A050EC34B6C3 /* PageRecord.swift */,
+				78F7B04E0049D5286CF9963E /* ScanProfile.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		21CE9CEEF1C383570349ECAB /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				C7E665A74886426E67EDE620 /* LibraryStore.swift */,
+				631013383587230485CE92E3 /* OCRService.swift */,
+				688E862356D329789BA97CEB /* PDFService.swift */,
+				B4EF92EC72E4C36786D0EAEA /* PageStore.swift */,
+				D340FF4E5760CA6587549600 /* ScanProcessingService.swift */,
+				81E0C2E38AED157E9AF8B3B3 /* SpeechService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		52FB1A3749F16A1C8971F687 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				DCE39A622632F336623B98F6 /* StoragePaths.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		1988E22FC3287EB5796B40D3 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				D681411C9F9C92B3B5113C88 /* BookReaderScreen.swift */,
+				E660F43010B1565B6B9875E7 /* DocumentScannerView.swift */,
+				E088065C176514F507234549 /* LibraryView.swift */,
+				956EADFFD9BBDB605D0ADB92 /* NewScanBookView.swift */,
+				4E6EFE3BBECF34DBFB0A25BB /* PDFReaderView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		567F2FDE2E8D3E9A09D6C13B /* Resources */ = {
+			isa = PBXGroup;
+			children = (EF431FED19380A0D7D5E65CE /* Info.plist */,);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		1E78B559816E575FC0BDB29C /* Products */ = {
+			isa = PBXGroup;
+			children = (3F23BDE21DC165B74BB1DDED /* BookScannerReader.app */,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		2EB2D8158FC6EF9EB19CB439 = {
+			isa = PBXGroup;
+			children = (
+				C165EB5F1BF36CBC32477D82 /* App */,
+				ABC08E9AF421A1EC97561484 /* Models */,
+				21CE9CEEF1C383570349ECAB /* Services */,
+				52FB1A3749F16A1C8971F687 /* Utilities */,
+				1988E22FC3287EB5796B40D3 /* Views */,
+				567F2FDE2E8D3E9A09D6C13B /* Resources */,
+				1E78B559816E575FC0BDB29C /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1822280F6B0881F495C33105 /* BookScannerReader */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 03AA5BC17A2F9AD6451CC363 /* Build configuration list for PBXNativeTarget "BookScannerReader" */;
+			buildPhases = (
+				B0193229F5D633567D732C36 /* Sources */,
+				196738691649AC2E2FD321A6 /* Frameworks */,
+				8B0AD72DF5FB9B933D77B1AB /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = BookScannerReader;
+			productName = BookScannerReader;
+			productReference = 3F23BDE21DC165B74BB1DDED /* BookScannerReader.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9E88446A3F44B57E975BE17B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					1822280F6B0881F495C33105 = { CreatedOnToolsVersion = 16.0; };
+				};
+			};
+			buildConfigurationList = FB10289FD88DB97C76595549 /* Build configuration list for PBXProject "BookScannerReader" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 2EB2D8158FC6EF9EB19CB439;
+			productRefGroup = 1E78B559816E575FC0BDB29C /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (1822280F6B0881F495C33105 /* BookScannerReader */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8B0AD72DF5FB9B933D77B1AB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B0193229F5D633567D732C36 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3E791FCA5C00A4E57F35FA7 /* BookScannerReaderApp.swift in Sources */,
+				1B7AC75DD02EB5E1D758E946 /* Book.swift in Sources */,
+				5CAFD799BFF59C0E450551B9 /* PageRecord.swift in Sources */,
+				371DB709D6D072CD7073CFE9 /* ScanProfile.swift in Sources */,
+				D21FB3355BEB2C4C8180D651 /* LibraryStore.swift in Sources */,
+				62010A2B8FF4317FBC002C04 /* OCRService.swift in Sources */,
+				95A6EF89A4EA0C9AB8E52DEB /* PDFService.swift in Sources */,
+				D5D852BD2A13B61D88BB1C2C /* PageStore.swift in Sources */,
+				888835F4884045636F292157 /* ScanProcessingService.swift in Sources */,
+				5BF60FC69C83AADC5FAA370E /* SpeechService.swift in Sources */,
+				81E296736C3FE5C387BD8C49 /* StoragePaths.swift in Sources */,
+				E365F9CF85AC06270361837C /* BookReaderScreen.swift in Sources */,
+				B7EA120097B3D3F9B2395CA4 /* DocumentScannerView.swift in Sources */,
+				0F82C7CA27D9261D5F12C127 /* LibraryView.swift in Sources */,
+				B950B8A009D2B467E04EC972 /* NewScanBookView.swift in Sources */,
+				CFAD2E7EB68280E33B20EDD0 /* PDFReaderView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FF9B1FFF2F1FFBC8BD5AEE02 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		A0FB275B4BEFD629FF780BCF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		496889A55C2B8CA29BCCD79C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				MARKETING_VERSION = 0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jssung0326.BookScannerReader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		665C48CD1BE32AF56F461688 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				MARKETING_VERSION = 0.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jssung0326.BookScannerReader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FB10289FD88DB97C76595549 /* Build configuration list for PBXProject "BookScannerReader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (FF9B1FFF2F1FFBC8BD5AEE02 /* Debug */, A0FB275B4BEFD629FF780BCF /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		03AA5BC17A2F9AD6451CC363 /* Build configuration list for PBXNativeTarget "BookScannerReader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (496889A55C2B8CA29BCCD79C /* Debug */, 665C48CD1BE32AF56F461688 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 9E88446A3F44B57E975BE17B /* Project object */;
+}
