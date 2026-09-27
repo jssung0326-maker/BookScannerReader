@@ -6,6 +6,8 @@ struct BookReaderScreen: View {
 
     @EnvironmentObject private var library: LibraryStore
     @StateObject private var speech = SpeechService()
+    @AppStorage("BookScannerReader.speechRate") private var speechRate = 0.48
+
     @State private var pages: [PageRecord] = []
     @State private var pageIndex = 0
     @State private var pdfLayout: PDFReaderLayout = .verticalContinuous
@@ -13,6 +15,8 @@ struct BookReaderScreen: View {
     @State private var showSearch = false
     @State private var showBookmarks = false
     @State private var showPageJump = false
+    @State private var showNoteEditor = false
+    @State private var showNotes = false
 
     private let pageStore = PageStore()
 
@@ -28,10 +32,32 @@ struct BookReaderScreen: View {
         }
         .navigationTitle(effectiveBook.title)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: reload)
-        .onDisappear(perform: saveReadingPosition)
+        .onAppear {
+            speech.rate = Float(speechRate)
+            reload()
+            markOpened()
+        }
+        .onDisappear {
+            saveReadingPosition()
+            speech.stop()
+        }
         .onChange(of: pageIndex) { _, _ in
             saveReadingPosition()
+        }
+        .onChange(of: speech.currentPageIndex) { _, newValue in
+            guard let newValue, newValue >= 0, newValue < totalPageCount else { return }
+            if pageIndex != newValue {
+                pageIndex = newValue
+            }
+        }
+        .onChange(of: speechRate) { _, newValue in
+            speech.rate = Float(newValue)
+        }
+        .safeAreaInset(edge: .bottom) {
+            if speech.isActive {
+                SpeechMiniPlayer(speech: speech, rate: $speechRate)
+                    .background(.regularMaterial)
+            }
         }
         .toolbar {
             if hasReadableContent {
@@ -63,16 +89,40 @@ struct BookReaderScreen: View {
                             }
 
                             Button {
-                                if speech.isSpeaking {
+                                speakCurrentPage()
+                            } label: {
+                                Label("현재 페이지 읽어주기", systemImage: "speaker.wave.2")
+                            }
+
+                            Button {
+                                speakFromCurrentPage()
+                            } label: {
+                                Label("현재 페이지부터 이어읽기", systemImage: "text.badge.play")
+                            }
+
+                            if speech.isActive {
+                                Button(role: .destructive) {
                                     speech.stop()
-                                } else {
-                                    speech.speak(currentPageText())
+                                } label: {
+                                    Label("음성 읽기 중지", systemImage: "stop.fill")
                                 }
+                            }
+                        }
+
+                        Section("메모") {
+                            Button {
+                                showNoteEditor = true
                             } label: {
                                 Label(
-                                    speech.isSpeaking ? "읽기 중지" : "현재 페이지 읽어주기",
-                                    systemImage: speech.isSpeaking ? "stop.fill" : "speaker.wave.2"
+                                    currentNote == nil ? "현재 페이지 메모" : "현재 페이지 메모 편집",
+                                    systemImage: currentNote == nil ? "square.and.pencil" : "note.text"
                                 )
+                            }
+
+                            Button {
+                                showNotes = true
+                            } label: {
+                                Label("메모 목록", systemImage: "list.bullet.rectangle")
                             }
                         }
 
@@ -114,10 +164,20 @@ struct BookReaderScreen: View {
                 .environmentObject(library)
         }
         .sheet(isPresented: $showSearch) {
-            ReaderSearchSheet(texts: searchableTexts()) { selectedIndex in
-                pageIndex = selectedIndex
-                showSearch = false
-            }
+            ReaderSearchSheet(
+                texts: searchableTexts(),
+                onSelect: { selectedIndex in
+                    pageIndex = selectedIndex
+                    showSearch = false
+                },
+                onRead: { selectedIndex in
+                    pageIndex = selectedIndex
+                    showSearch = false
+                    DispatchQueue.main.async {
+                        speakFromPage(selectedIndex)
+                    }
+                }
+            )
         }
         .sheet(isPresented: $showBookmarks) {
             BookmarkListSheet(
@@ -133,6 +193,26 @@ struct BookReaderScreen: View {
                 pageIndex = selectedIndex
                 showPageJump = false
             }
+        }
+        .sheet(isPresented: $showNoteEditor) {
+            NoteEditorSheet(
+                pageNumber: pageIndex + 1,
+                initialText: currentNote?.text ?? ""
+            ) { text in
+                saveCurrentNote(text)
+                showNoteEditor = false
+            }
+        }
+        .sheet(isPresented: $showNotes) {
+            NotesListSheet(
+                notes: effectiveBook.readingNotes,
+                totalPages: totalPageCount,
+                onSelect: { selectedIndex in
+                    pageIndex = selectedIndex
+                    showNotes = false
+                },
+                onDelete: deleteNote
+            )
         }
     }
 
@@ -160,6 +240,17 @@ struct BookReaderScreen: View {
         effectiveBook.bookmarkedPageIndices.contains(pageIndex)
     }
 
+    private var currentPageID: UUID? {
+        pages.indices.contains(pageIndex) ? pages[pageIndex].id : nil
+    }
+
+    private var currentNote: ReadingNote? {
+        if let pageID = currentPageID {
+            return effectiveBook.readingNotes.first(where: { $0.pageID == pageID })
+        }
+        return effectiveBook.readingNotes.first(where: { $0.pageID == nil && $0.pageIndex == pageIndex })
+    }
+
     private var scannedPageReader: some View {
         VStack(spacing: 10) {
             if pages.indices.contains(pageIndex),
@@ -178,7 +269,14 @@ struct BookReaderScreen: View {
                 Button("이전") { pageIndex = max(0, pageIndex - 1) }
                     .disabled(pageIndex == 0)
                 Spacer()
-                Text(totalPageCount == 0 ? "0 / 0" : "\(pageIndex + 1) / \(totalPageCount)")
+                VStack(spacing: 2) {
+                    Text(totalPageCount == 0 ? "0 / 0" : "\(pageIndex + 1) / \(totalPageCount)")
+                    if currentNote != nil {
+                        Label("메모", systemImage: "note.text")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Spacer()
                 Button("다음") { pageIndex = min(max(totalPageCount - 1, 0), pageIndex + 1) }
                     .disabled(totalPageCount == 0 || pageIndex >= totalPageCount - 1)
@@ -191,6 +289,12 @@ struct BookReaderScreen: View {
         pages = pageStore.loadPages(bookID: book.id)
         let savedIndex = library.book(with: book.id)?.currentPageIndex ?? book.currentPageIndex
         pageIndex = min(max(savedIndex, 0), max(totalPageCount - 1, 0))
+    }
+
+    private func markOpened() {
+        var updated = library.book(with: book.id) ?? book
+        updated.lastOpenedAt = .now
+        library.update(updated)
     }
 
     private func saveReadingPosition() {
@@ -214,6 +318,55 @@ struct BookReaderScreen: View {
         library.update(updated)
     }
 
+    private func saveCurrentNote(_ rawText: String) {
+        var updated = library.book(with: book.id) ?? book
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let existing = currentNote,
+           let index = updated.readingNotes.firstIndex(where: { $0.id == existing.id }) {
+            if trimmed.isEmpty {
+                updated.readingNotes.remove(at: index)
+            } else {
+                updated.readingNotes[index].text = trimmed
+                updated.readingNotes[index].pageIndex = pageIndex
+                updated.readingNotes[index].pageID = currentPageID
+                updated.readingNotes[index].updatedAt = .now
+            }
+        } else if !trimmed.isEmpty {
+            updated.readingNotes.append(
+                ReadingNote(
+                    pageIndex: pageIndex,
+                    pageID: currentPageID,
+                    text: trimmed
+                )
+            )
+        }
+
+        updated.updatedAt = .now
+        library.update(updated)
+    }
+
+    private func deleteNote(_ id: UUID) {
+        var updated = library.book(with: book.id) ?? book
+        updated.readingNotes.removeAll(where: { $0.id == id })
+        updated.updatedAt = .now
+        library.update(updated)
+    }
+
+    private func speakCurrentPage() {
+        speech.rate = Float(speechRate)
+        speech.speakPage(currentPageText(), pageIndex: pageIndex)
+    }
+
+    private func speakFromCurrentPage() {
+        speakFromPage(pageIndex)
+    }
+
+    private func speakFromPage(_ index: Int) {
+        speech.rate = Float(speechRate)
+        speech.speakPages(searchableTexts(), from: index)
+    }
+
     private func currentPageText() -> String {
         if pages.indices.contains(pageIndex) {
             return pages[pageIndex].ocrText
@@ -235,6 +388,67 @@ struct BookReaderScreen: View {
     }
 }
 
+private struct SpeechMiniPlayer: View {
+    @ObservedObject var speech: SpeechService
+    @Binding var rate: Double
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Button {
+                    if speech.isPaused {
+                        speech.resume()
+                    } else {
+                        speech.pause()
+                    }
+                } label: {
+                    Image(systemName: speech.isPaused ? "play.fill" : "pause.fill")
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.borderedProminent)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(speech.currentPageIndex.map { "페이지 \($0 + 1)" } ?? "음성 읽기")
+                            .font(.caption.bold())
+                        Spacer()
+                        if speech.totalSentences > 0 {
+                            Text("\(speech.currentSentenceNumber)/\(speech.totalSentences)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Text(speech.currentSentence)
+                        .font(.caption)
+                        .lineLimit(2)
+                    ProgressView(value: speech.progress)
+                }
+
+                Button(role: .destructive) {
+                    speech.stop()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .frame(width: 30, height: 30)
+                }
+                .buttonStyle(.bordered)
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "tortoise")
+                    .foregroundStyle(.secondary)
+                Slider(value: $rate, in: 0.35...0.60, step: 0.01)
+                Image(systemName: "hare")
+                    .foregroundStyle(.secondary)
+                Text(String(format: "%.2fx", rate / 0.48))
+                    .font(.caption.monospacedDigit())
+                    .frame(width: 46, alignment: .trailing)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 9)
+    }
+}
+
 private struct ReaderSearchSheet: View {
     private struct SearchResult: Identifiable {
         let pageIndex: Int
@@ -244,6 +458,7 @@ private struct ReaderSearchSheet: View {
 
     let texts: [String]
     let onSelect: (Int) -> Void
+    let onRead: (Int) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
@@ -271,18 +486,30 @@ private struct ReaderSearchSheet: View {
                     ContentUnavailableView.search(text: query)
                 } else {
                     List(results) { result in
-                        Button {
-                            onSelect(result.pageIndex)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("페이지 \(result.pageIndex + 1)")
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                Text(result.snippet)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(3)
+                        HStack(spacing: 12) {
+                            Button {
+                                onSelect(result.pageIndex)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("페이지 \(result.pageIndex + 1)")
+                                        .font(.headline)
+                                        .foregroundStyle(.primary)
+                                    Text(result.snippet)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(3)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                onRead(result.pageIndex)
+                            } label: {
+                                Image(systemName: "speaker.wave.2.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .accessibilityLabel("이 페이지부터 읽기")
                         }
                     }
                 }
@@ -346,6 +573,108 @@ private struct BookmarkListSheet: View {
                 }
             }
             .navigationTitle("북마크")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct NoteEditorSheet: View {
+    let pageNumber: Int
+    let onSave: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String
+
+    init(pageNumber: Int, initialText: String, onSave: @escaping (String) -> Void) {
+        self.pageNumber = pageNumber
+        self.onSave = onSave
+        _text = State(initialValue: initialText)
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("페이지 \(pageNumber)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextEditor(text: $text)
+                    .padding(8)
+                    .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            }
+            .padding()
+            .navigationTitle("페이지 메모")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("저장") { onSave(text) }
+                }
+            }
+        }
+    }
+}
+
+private struct NotesListSheet: View {
+    let notes: [ReadingNote]
+    let totalPages: Int
+    let onSelect: (Int) -> Void
+    let onDelete: (UUID) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var validNotes: [ReadingNote] {
+        notes
+            .filter { $0.pageIndex >= 0 && $0.pageIndex < totalPages }
+            .sorted { lhs, rhs in
+                lhs.pageIndex == rhs.pageIndex ? lhs.updatedAt > rhs.updatedAt : lhs.pageIndex < rhs.pageIndex
+            }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if validNotes.isEmpty {
+                    ContentUnavailableView(
+                        "메모가 없습니다",
+                        systemImage: "note.text",
+                        description: Text("읽는 화면에서 현재 페이지에 메모를 남길 수 있습니다.")
+                    )
+                } else {
+                    List(validNotes) { note in
+                        HStack(alignment: .top, spacing: 12) {
+                            Button {
+                                onSelect(note.pageIndex)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text("페이지 \(note.pageIndex + 1)")
+                                        .font(.headline)
+                                    Text(note.text)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(3)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button(role: .destructive) {
+                                onDelete(note.id)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("메모")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

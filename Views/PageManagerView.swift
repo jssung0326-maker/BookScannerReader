@@ -317,6 +317,19 @@ struct PageManagerView: View {
             updated.bookmarkedPageIndices = updated.bookmarkedPageIndices.filter { $0 >= 0 && $0 < pages.count }
         }
 
+        // v0.7 메모는 스캔 페이지의 PageRecord.id를 함께 보관합니다.
+        // 순서 변경 시 같은 페이지를 따라가고, 페이지 삭제 시 해당 메모도 정리합니다.
+        updated.readingNotes = updated.readingNotes.compactMap { note in
+            var remapped = note
+            if let pageID = note.pageID {
+                guard let newIndex = pages.firstIndex(where: { $0.id == pageID }) else { return nil }
+                remapped.pageIndex = newIndex
+                return remapped
+            }
+            guard note.pageIndex >= 0 && note.pageIndex < pages.count else { return nil }
+            return remapped
+        }
+
         library.update(updated)
     }
 
