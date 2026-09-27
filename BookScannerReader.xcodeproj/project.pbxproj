@@ -19,6 +19,7 @@
 		81E296736C3FE5C387BD8C49 /* StoragePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE39A622632F336623B98F6 /* StoragePaths.swift */; };
 		E365F9CF85AC06270361837C /* BookReaderScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D681411C9F9C92B3B5113C88 /* BookReaderScreen.swift */; };
 		B7EA120097B3D3F9B2395CA4 /* DocumentScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E660F43010B1565B6B9875E7 /* DocumentScannerView.swift */; };
+		A9B8C7D6E5F4019283746501 /* BookAutoCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B8C7D6E5F4019283746502 /* BookAutoCameraView.swift */; };
 		0F82C7CA27D9261D5F12C127 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E088065C176514F507234549 /* LibraryView.swift */; };
 		B950B8A009D2B467E04EC972 /* NewScanBookView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 956EADFFD9BBDB605D0ADB92 /* NewScanBookView.swift */; };
 		CFAD2E7EB68280E33B20EDD0 /* PDFReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E6EFE3BBECF34DBFB0A25BB /* PDFReaderView.swift */; };
@@ -39,6 +40,7 @@
 		DCE39A622632F336623B98F6 /* StoragePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoragePaths.swift; sourceTree = "<group>"; };
 		D681411C9F9C92B3B5113C88 /* BookReaderScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookReaderScreen.swift; sourceTree = "<group>"; };
 		E660F43010B1565B6B9875E7 /* DocumentScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScannerView.swift; sourceTree = "<group>"; };
+		A9B8C7D6E5F4019283746502 /* BookAutoCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookAutoCameraView.swift; sourceTree = "<group>"; };
 		E088065C176514F507234549 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		956EADFFD9BBDB605D0ADB92 /* NewScanBookView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewScanBookView.swift; sourceTree = "<group>"; };
 		4E6EFE3BBECF34DBFB0A25BB /* PDFReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFReaderView.swift; sourceTree = "<group>"; };
@@ -101,6 +103,7 @@
 			children = (
 				D681411C9F9C92B3B5113C88 /* BookReaderScreen.swift */,
 				E660F43010B1565B6B9875E7 /* DocumentScannerView.swift */,
+				A9B8C7D6E5F4019283746502 /* BookAutoCameraView.swift */,
 				E088065C176514F507234549 /* LibraryView.swift */,
 				956EADFFD9BBDB605D0ADB92 /* NewScanBookView.swift */,
 				4E6EFE3BBECF34DBFB0A25BB /* PDFReaderView.swift */,
@@ -205,6 +208,7 @@
 				81E296736C3FE5C387BD8C49 /* StoragePaths.swift in Sources */,
 				E365F9CF85AC06270361837C /* BookReaderScreen.swift in Sources */,
 				B7EA120097B3D3F9B2395CA4 /* DocumentScannerView.swift in Sources */,
+				A9B8C7D6E5F4019283746501 /* BookAutoCameraView.swift in Sources */,
 				0F82C7CA27D9261D5F12C127 /* LibraryView.swift in Sources */,
 				B950B8A009D2B467E04EC972 /* NewScanBookView.swift in Sources */,
 				CFAD2E7EB68280E33B20EDD0 /* PDFReaderView.swift in Sources */,
@@ -257,10 +261,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
-				MARKETING_VERSION = 0.8;
+				MARKETING_VERSION = 0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jssung0326.BookScannerReader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -276,10 +280,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
-				MARKETING_VERSION = 0.8;
+				MARKETING_VERSION = 0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jssung0326.BookScannerReader;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

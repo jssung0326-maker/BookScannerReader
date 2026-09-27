@@ -15,6 +15,21 @@ struct ScanProfile: Codable, Hashable {
         }
     }
 
+
+    enum CaptureEngine: String, Codable, CaseIterable, Identifiable {
+        case bookAutoCamera
+        case documentScanner
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .bookAutoCamera: return "책 자동 카메라"
+            case .documentScanner: return "기본 문서 스캐너"
+            }
+        }
+    }
+
     enum FitMode: String, Codable, CaseIterable, Identifiable {
         case aspectFit
         case aspectFill
@@ -51,6 +66,15 @@ struct ScanProfile: Codable, Hashable {
     var fitMode: FitMode
     var ocrLanguages: [String]
 
+    /// v0.9 촬영 엔진. 새 책은 책 자동 카메라를 기본으로 사용합니다.
+    var captureEngine: CaptureEngine
+    /// 책 자동 카메라에서 페이지가 안정되면 자동으로 셔터를 누릅니다.
+    var autoCaptureEnabled: Bool
+    /// 자동 촬영에 필요한 최소 실시간 품질 점수(0...100).
+    var minimumLiveQualityScore: Int
+    /// 페이지가 안정된 상태로 유지되어야 하는 시간(초).
+    var autoCaptureDelay: Double
+
     /// 두 페이지 촬영 시 첫 번째 기준 분리선. 0.5 = 정확한 중앙.
     var splitPosition: Double
     /// true이면 각 촬영 이미지마다 중앙 제본선 후보를 자동으로 탐색합니다.
@@ -76,6 +100,10 @@ struct ScanProfile: Codable, Hashable {
         outputWidthPixels: Int,
         fitMode: FitMode,
         ocrLanguages: [String],
+        captureEngine: CaptureEngine = .bookAutoCamera,
+        autoCaptureEnabled: Bool = true,
+        minimumLiveQualityScore: Int = 65,
+        autoCaptureDelay: Double = 0.8,
         splitPosition: Double = 0.5,
         autoDetectSplit: Bool = true,
         readingOrder: ReadingOrder = .leftToRight,
@@ -88,6 +116,10 @@ struct ScanProfile: Codable, Hashable {
         self.outputWidthPixels = outputWidthPixels
         self.fitMode = fitMode
         self.ocrLanguages = ocrLanguages
+        self.captureEngine = captureEngine
+        self.autoCaptureEnabled = autoCaptureEnabled
+        self.minimumLiveQualityScore = min(max(minimumLiveQualityScore, 40), 95)
+        self.autoCaptureDelay = min(max(autoCaptureDelay, 0.4), 2.0)
         self.splitPosition = min(max(splitPosition, 0.35), 0.65)
         self.autoDetectSplit = autoDetectSplit
         self.readingOrder = readingOrder
@@ -102,6 +134,10 @@ struct ScanProfile: Codable, Hashable {
         outputWidthPixels: 1800,
         fitMode: .aspectFit,
         ocrLanguages: ["ko-KR", "en-US"],
+        captureEngine: .bookAutoCamera,
+        autoCaptureEnabled: true,
+        minimumLiveQualityScore: 65,
+        autoCaptureDelay: 0.8,
         splitPosition: 0.5,
         autoDetectSplit: true,
         readingOrder: .leftToRight,
@@ -116,6 +152,10 @@ struct ScanProfile: Codable, Hashable {
         case outputWidthPixels
         case fitMode
         case ocrLanguages
+        case captureEngine
+        case autoCaptureEnabled
+        case minimumLiveQualityScore
+        case autoCaptureDelay
         case splitPosition
         case autoDetectSplit
         case readingOrder
@@ -132,6 +172,11 @@ struct ScanProfile: Codable, Hashable {
         outputWidthPixels = try container.decode(Int.self, forKey: .outputWidthPixels)
         fitMode = try container.decode(FitMode.self, forKey: .fitMode)
         ocrLanguages = try container.decode([String].self, forKey: .ocrLanguages)
+        // 기존 v0.8 이하 책은 기존 VisionKit 스캐너 동작을 그대로 유지합니다.
+        captureEngine = try container.decodeIfPresent(CaptureEngine.self, forKey: .captureEngine) ?? .documentScanner
+        autoCaptureEnabled = try container.decodeIfPresent(Bool.self, forKey: .autoCaptureEnabled) ?? true
+        minimumLiveQualityScore = min(max(try container.decodeIfPresent(Int.self, forKey: .minimumLiveQualityScore) ?? 65, 40), 95)
+        autoCaptureDelay = min(max(try container.decodeIfPresent(Double.self, forKey: .autoCaptureDelay) ?? 0.8, 0.4), 2.0)
         splitPosition = try container.decodeIfPresent(Double.self, forKey: .splitPosition) ?? 0.5
         autoDetectSplit = try container.decodeIfPresent(Bool.self, forKey: .autoDetectSplit) ?? true
         readingOrder = try container.decodeIfPresent(ReadingOrder.self, forKey: .readingOrder) ?? .leftToRight
@@ -147,6 +192,10 @@ struct ScanProfile: Codable, Hashable {
         try container.encode(outputWidthPixels, forKey: .outputWidthPixels)
         try container.encode(fitMode, forKey: .fitMode)
         try container.encode(ocrLanguages, forKey: .ocrLanguages)
+        try container.encode(captureEngine, forKey: .captureEngine)
+        try container.encode(autoCaptureEnabled, forKey: .autoCaptureEnabled)
+        try container.encode(minimumLiveQualityScore, forKey: .minimumLiveQualityScore)
+        try container.encode(autoCaptureDelay, forKey: .autoCaptureDelay)
         try container.encode(splitPosition, forKey: .splitPosition)
         try container.encode(autoDetectSplit, forKey: .autoDetectSplit)
         try container.encode(readingOrder, forKey: .readingOrder)

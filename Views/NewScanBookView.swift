@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import UIKit
 
@@ -7,6 +8,10 @@ struct NewScanBookView: View {
 
     @State private var title = "새 책"
     @State private var captureMode: ScanProfile.CaptureMode = .doublePage
+    @State private var captureEngine: ScanProfile.CaptureEngine = .bookAutoCamera
+    @State private var autoCaptureEnabled = true
+    @State private var minimumLiveQualityScore = 65
+    @State private var autoCaptureDelay = 0.8
     @State private var fitMode: ScanProfile.FitMode = .aspectFit
     @State private var readingOrder: ScanProfile.ReadingOrder = .leftToRight
     @State private var autoDetectSplit = true
@@ -61,6 +66,55 @@ struct NewScanBookView: View {
                     Text("첫 번째로 분리·보정된 페이지의 가로:세로 비율을 이 책의 기준 규격으로 저장하고, 이후 페이지를 같은 크기로 맞춥니다.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("촬영 카메라") {
+                    Picker("카메라 방식", selection: $captureEngine) {
+                        ForEach(ScanProfile.CaptureEngine.allCases) { engine in
+                            Text(engine.displayName).tag(engine)
+                        }
+                    }
+
+                    if captureEngine == .bookAutoCamera {
+                        Toggle("페이지가 안정되면 자동 촬영", isOn: $autoCaptureEnabled)
+
+                        if autoCaptureEnabled {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("자동 촬영 대기")
+                                    Spacer()
+                                    Text(String(format: "%.1f초", autoCaptureDelay))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Slider(value: $autoCaptureDelay, in: 0.4...1.6, step: 0.1)
+                            }
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("최소 품질 점수")
+                                    Spacer()
+                                    Text("\(minimumLiveQualityScore)점")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Slider(
+                                    value: Binding(
+                                        get: { Double(minimumLiveQualityScore) },
+                                        set: { minimumLiveQualityScore = Int($0.rounded()) }
+                                    ),
+                                    in: 50...85,
+                                    step: 5
+                                )
+                            }
+                        }
+
+                        Text("v0.9 책 자동 카메라는 페이지 외곽과 움직임을 실시간으로 확인하고, 같은 페이지가 그대로 있으면 중복 자동 촬영을 억제합니다. 언제든 셔터 버튼으로 수동 촬영할 수 있습니다.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("기본 문서 스캐너는 iOS VisionKit 촬영 화면을 사용합니다.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("페이지 보정") {
@@ -168,17 +222,38 @@ struct NewScanBookView: View {
                         .padding()
                 }
             }
-            .sheet(isPresented: $showScanner) {
-                DocumentScannerView { images in
-                    showScanner = false
-                    guard !images.isEmpty else { return }
-                    handleCaptured(images)
-                } onCancel: {
-                    showScanner = false
-                } onError: { error in
-                    errorMessage = error.localizedDescription
-                    showScanner = false
+            .fullScreenCover(isPresented: $showScanner) {
+                Group {
+                    if captureEngine == .bookAutoCamera {
+                        BookAutoCameraView(
+                            captureMode: captureMode,
+                            autoCaptureEnabled: autoCaptureEnabled,
+                            minimumQualityScore: minimumLiveQualityScore,
+                            autoCaptureDelay: autoCaptureDelay
+                        ) { images in
+                            showScanner = false
+                            guard !images.isEmpty else { return }
+                            handleCaptured(images)
+                        } onCancel: {
+                            showScanner = false
+                        } onError: { error in
+                            errorMessage = error.localizedDescription
+                            showScanner = false
+                        }
+                    } else {
+                        DocumentScannerView { images in
+                            showScanner = false
+                            guard !images.isEmpty else { return }
+                            handleCaptured(images)
+                        } onCancel: {
+                            showScanner = false
+                        } onError: { error in
+                            errorMessage = error.localizedDescription
+                            showScanner = false
+                        }
+                    }
                 }
+                .ignoresSafeArea()
             }
             .alert("오류", isPresented: Binding(
                 get: { errorMessage != nil },
@@ -313,6 +388,10 @@ struct NewScanBookView: View {
 
             var profile = processor.inferredProfile(from: first, captureMode: captureMode)
             profile.fitMode = fitMode
+            profile.captureEngine = captureEngine
+            profile.autoCaptureEnabled = autoCaptureEnabled
+            profile.minimumLiveQualityScore = minimumLiveQualityScore
+            profile.autoCaptureDelay = autoCaptureDelay
             profile.autoDetectSplit = autoDetectSplit
             profile.splitPosition = captureMode == .doublePage
                 ? (autoDetectSplit ? processor.suggestedSplitPosition(scannedImages[0]) : splitPosition)

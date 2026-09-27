@@ -71,31 +71,75 @@ struct PageManagerView: View {
                 }
             }
             .onAppear(perform: load)
-            .sheet(isPresented: $showReplacementScanner) {
-                DocumentScannerView { images in
-                    showReplacementScanner = false
-                    guard let image = images.first, let pageID = replacingPageID else { return }
-                    Task { await replacePage(pageID: pageID, with: image) }
-                } onCancel: {
-                    showReplacementScanner = false
-                    replacingPageID = nil
-                } onError: { error in
-                    showReplacementScanner = false
-                    replacingPageID = nil
-                    errorMessage = error.localizedDescription
+            .fullScreenCover(isPresented: $showReplacementScanner) {
+                Group {
+                    if effectiveBook.scanProfile?.captureEngine == .bookAutoCamera {
+                        BookAutoCameraView(
+                            captureMode: .singlePage,
+                            autoCaptureEnabled: false,
+                            minimumQualityScore: effectiveBook.scanProfile?.minimumLiveQualityScore ?? 65,
+                            autoCaptureDelay: effectiveBook.scanProfile?.autoCaptureDelay ?? 0.8
+                        ) { images in
+                            showReplacementScanner = false
+                            guard let image = images.first, let pageID = replacingPageID else { return }
+                            Task { await replacePage(pageID: pageID, with: image) }
+                        } onCancel: {
+                            showReplacementScanner = false
+                            replacingPageID = nil
+                        } onError: { error in
+                            showReplacementScanner = false
+                            replacingPageID = nil
+                            errorMessage = error.localizedDescription
+                        }
+                    } else {
+                        DocumentScannerView { images in
+                            showReplacementScanner = false
+                            guard let image = images.first, let pageID = replacingPageID else { return }
+                            Task { await replacePage(pageID: pageID, with: image) }
+                        } onCancel: {
+                            showReplacementScanner = false
+                            replacingPageID = nil
+                        } onError: { error in
+                            showReplacementScanner = false
+                            replacingPageID = nil
+                            errorMessage = error.localizedDescription
+                        }
+                    }
                 }
+                .ignoresSafeArea()
             }
-            .sheet(isPresented: $showAppendScanner) {
-                DocumentScannerView { images in
-                    showAppendScanner = false
-                    guard !images.isEmpty else { return }
-                    handleAppendCaptured(images)
-                } onCancel: {
-                    showAppendScanner = false
-                } onError: { error in
-                    showAppendScanner = false
-                    errorMessage = error.localizedDescription
+            .fullScreenCover(isPresented: $showAppendScanner) {
+                Group {
+                    if let profile = effectiveBook.scanProfile, profile.captureEngine == .bookAutoCamera {
+                        BookAutoCameraView(
+                            captureMode: profile.captureMode,
+                            autoCaptureEnabled: profile.autoCaptureEnabled,
+                            minimumQualityScore: profile.minimumLiveQualityScore,
+                            autoCaptureDelay: profile.autoCaptureDelay
+                        ) { images in
+                            showAppendScanner = false
+                            guard !images.isEmpty else { return }
+                            handleAppendCaptured(images)
+                        } onCancel: {
+                            showAppendScanner = false
+                        } onError: { error in
+                            showAppendScanner = false
+                            errorMessage = error.localizedDescription
+                        }
+                    } else {
+                        DocumentScannerView { images in
+                            showAppendScanner = false
+                            guard !images.isEmpty else { return }
+                            handleAppendCaptured(images)
+                        } onCancel: {
+                            showAppendScanner = false
+                        } onError: { error in
+                            showAppendScanner = false
+                            errorMessage = error.localizedDescription
+                        }
+                    }
                 }
+                .ignoresSafeArea()
             }
             .confirmationDialog(
                 "이어 스캔 품질 확인",
