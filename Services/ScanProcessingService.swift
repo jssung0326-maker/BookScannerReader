@@ -404,6 +404,97 @@ final class ScanProcessingService {
         }
     }
 
+
+    struct ScanQualityReport {
+        let averageBrightness: Double
+        let contrast: Double
+        let edgeEnergy: Double
+        let issues: [String]
+
+        var isAcceptable: Bool { issues.isEmpty }
+        var summary: String {
+            issues.isEmpty ? "촬영 품질 양호" : issues.joined(separator: "\n")
+        }
+    }
+
+    /// v0.5 촬영 품질 1차 검사.
+    /// 밝기, 대비, 인접 픽셀 변화량을 이용해 지나치게 어둡거나 밝은 사진과 심한 흐림 가능성을 경고합니다.
+    /// 자동 폐기하지 않고 사용자에게 계속 진행/재촬영을 선택하게 하는 보조 검사입니다.
+    func qualityReport(_ image: UIImage) -> ScanQualityReport {
+        let upright = uprightImage(image)
+        guard let cg = upright.cgImage else {
+            return ScanQualityReport(averageBrightness: 0, contrast: 0, edgeEnergy: 0, issues: ["이미지를 분석할 수 없습니다."])
+        }
+
+        let width = 180
+        let height = 240
+        var pixels = [UInt8](repeating: 255, count: width * height)
+        let didDraw = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let baseAddress = buffer.baseAddress,
+                let context = CGContext(
+                    data: baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: width,
+                    space: CGColorSpaceCreateDeviceGray(),
+                    bitmapInfo: CGImageAlphaInfo.none.rawValue
+                )
+            else { return false }
+            context.interpolationQuality = .low
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+
+        guard didDraw else {
+            return ScanQualityReport(averageBrightness: 0, contrast: 0, edgeEnergy: 0, issues: ["이미지를 분석할 수 없습니다."])
+        }
+
+        let count = Double(pixels.count)
+        let mean = pixels.reduce(0.0) { $0 + Double($1) } / count
+        let variance = pixels.reduce(0.0) { partial, value in
+            let d = Double(value) - mean
+            return partial + d * d
+        } / count
+        let contrast = sqrt(variance)
+
+        var gradientSum = 0.0
+        var gradientCount = 0
+        for y in 1..<(height - 1) {
+            for x in 1..<(width - 1) {
+                let center = Int(pixels[y * width + x])
+                let right = Int(pixels[y * width + x + 1])
+                let down = Int(pixels[(y + 1) * width + x])
+                gradientSum += Double(abs(center - right) + abs(center - down))
+                gradientCount += 2
+            }
+        }
+        let edgeEnergy = gradientCount > 0 ? gradientSum / Double(gradientCount) : 0
+
+        var issues: [String] = []
+        if mean < 55 {
+            issues.append("사진이 너무 어둡습니다. 조명을 밝게 하거나 그림자를 줄여보세요.")
+        } else if mean > 242 {
+            issues.append("사진이 너무 밝습니다. 빛 반사나 과다 노출을 확인해보세요.")
+        }
+
+        if contrast < 18 {
+            issues.append("페이지 대비가 낮습니다. 초점이나 조명을 확인해보세요.")
+        }
+
+        if edgeEnergy < 5.5 {
+            issues.append("사진이 흐릴 가능성이 있습니다. 카메라를 고정하고 다시 촬영하는 것을 권장합니다.")
+        }
+
+        return ScanQualityReport(
+            averageBrightness: mean,
+            contrast: contrast,
+            edgeEnergy: edgeEnergy,
+            issues: issues
+        )
+    }
+
     private func uprightImage(_ image: UIImage) -> UIImage {
         guard image.imageOrientation != .up else { return image }
 

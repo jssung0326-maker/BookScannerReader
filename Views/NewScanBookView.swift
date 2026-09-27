@@ -20,6 +20,8 @@ struct NewScanBookView: View {
     @State private var processing = false
     @State private var processingMessage = "페이지 보정 · OCR · PDF 생성 중"
     @State private var errorMessage: String?
+    @State private var qualityWarning: String?
+    @State private var qualityPendingScans: [UIImage] = []
 
     private let processor = ScanProcessingService()
     private let pageStore = PageStore()
@@ -170,15 +172,7 @@ struct NewScanBookView: View {
                 DocumentScannerView { images in
                     showScanner = false
                     guard !images.isEmpty else { return }
-
-                    if captureMode == .doublePage {
-                        pendingScans = images
-                        splitPosition = autoDetectSplit
-                            ? processor.suggestedSplitPosition(images[0])
-                            : 0.5
-                    } else {
-                        Task { await process(images) }
-                    }
+                    handleCaptured(images)
                 } onCancel: {
                     showScanner = false
                 } onError: { error in
@@ -194,6 +188,63 @@ struct NewScanBookView: View {
             } message: {
                 Text(errorMessage ?? "알 수 없는 오류")
             }
+            .confirmationDialog(
+                "촬영 품질 확인",
+                isPresented: Binding(
+                    get: { qualityWarning != nil },
+                    set: { if !$0 { qualityWarning = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("계속 진행") {
+                    let images = qualityPendingScans
+                    qualityPendingScans.removeAll()
+                    qualityWarning = nil
+                    acceptCaptured(images)
+                }
+                Button("다시 촬영", role: .destructive) {
+                    qualityPendingScans.removeAll()
+                    qualityWarning = nil
+                    showScanner = true
+                }
+                Button("취소", role: .cancel) {
+                    qualityPendingScans.removeAll()
+                    qualityWarning = nil
+                }
+            } message: {
+                Text(qualityWarning ?? "")
+            }
+        }
+    }
+
+    @MainActor
+    private func handleCaptured(_ images: [UIImage]) {
+        var warnings: [String] = []
+        for (index, image) in images.enumerated() {
+            let report = processor.qualityReport(image)
+            if !report.isAcceptable {
+                warnings.append("촬영본 \(index + 1):\n\(report.summary)")
+            }
+        }
+
+        if warnings.isEmpty {
+            acceptCaptured(images)
+        } else {
+            qualityPendingScans = images
+            qualityWarning = warnings.joined(separator: "\n\n")
+        }
+    }
+
+    @MainActor
+    private func acceptCaptured(_ images: [UIImage]) {
+        guard !images.isEmpty else { return }
+        if captureMode == .doublePage {
+            pendingScans = images
+            splitPosition = autoDetectSplit
+                ? processor.suggestedSplitPosition(images[0])
+                : 0.5
+        } else {
+            Task { await process(images) }
         }
     }
 
@@ -291,10 +342,13 @@ struct NewScanBookView: View {
                 normalizedImages.append(normalized)
             }
 
-            processingMessage = "PDF 생성 중"
+            processingMessage = "검색 가능한 PDF 생성 중"
             try pageStore.savePages(records, bookID: bookID)
             let pdfURL = StoragePaths.pdfURL(bookID: bookID)
-            try pdf.makePDF(images: normalizedImages, destination: pdfURL)
+            let searchablePages = zip(normalizedImages, records).map { image, record in
+                PDFService.SearchablePage(image: image, text: record.ocrText)
+            }
+            try pdf.makeSearchablePDF(pages: searchablePages, destination: pdfURL)
 
             let book = Book(
                 id: bookID,
