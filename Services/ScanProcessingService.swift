@@ -412,8 +412,20 @@ final class ScanProcessingService {
         let issues: [String]
 
         var isAcceptable: Bool { issues.isEmpty }
+
+        var score: Int {
+            var value = 100.0
+            if averageBrightness < 55 || averageBrightness > 242 { value -= 30 }
+            if contrast < 18 { value -= 25 }
+            if edgeEnergy < 5.5 { value -= 35 }
+            return Int(min(max(value, 0), 100).rounded())
+        }
+
         var summary: String {
-            issues.isEmpty ? "촬영 품질 양호" : issues.joined(separator: "\n")
+            let header = "품질 점수: \(score)/100"
+            return issues.isEmpty
+                ? "\(header)\n촬영 품질 양호"
+                : "\(header)\n" + issues.joined(separator: "\n")
         }
     }
 
@@ -493,6 +505,90 @@ final class ScanProcessingService {
             edgeEnergy: edgeEnergy,
             issues: issues
         )
+    }
+
+
+    /// OCR 텍스트를 이용한 중복 페이지 유사도(0...1).
+    /// 충분한 단어가 있을 때만 의미 있는 값을 반환합니다.
+    func textSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        let left = normalizedWords(lhs)
+        let right = normalizedWords(rhs)
+        guard left.count >= 6, right.count >= 6 else { return 0 }
+
+        let intersection = left.intersection(right).count
+        let union = left.union(right).count
+        guard union > 0 else { return 0 }
+        return Double(intersection) / Double(union)
+    }
+
+    /// OCR이 부족한 페이지를 위한 아주 보수적인 이미지 유사도 보조 검사입니다.
+    /// 평균 밝기를 제거한 32×32 그레이스케일 패턴 차이를 사용합니다.
+    func imageSimilarity(_ lhs: UIImage, _ rhs: UIImage) -> Double {
+        guard let a = normalizedGraySample(lhs, width: 32, height: 32),
+              let b = normalizedGraySample(rhs, width: 32, height: 32),
+              a.count == b.count, !a.isEmpty else { return 0 }
+
+        let meanA = a.reduce(0.0, +) / Double(a.count)
+        let meanB = b.reduce(0.0, +) / Double(b.count)
+        var diff = 0.0
+        for index in a.indices {
+            let centeredA = a[index] - meanA
+            let centeredB = b[index] - meanB
+            diff += abs(centeredA - centeredB)
+        }
+        let meanDiff = diff / Double(a.count)
+        return min(max(1.0 - meanDiff / 255.0, 0), 1)
+    }
+
+    /// 이어 스캔 시 직전 페이지를 다시 찍은 경우를 찾기 위한 1차 판정입니다.
+    /// 텍스트가 충분하면 OCR 유사도를 우선하고, 텍스트가 거의 없을 때만 매우 높은 이미지 유사도를 사용합니다.
+    func isLikelyDuplicate(
+        image: UIImage,
+        text: String,
+        referenceImage: UIImage,
+        referenceText: String
+    ) -> Bool {
+        let textScore = textSimilarity(text, referenceText)
+        if textScore >= 0.90 { return true }
+
+        let compactText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let compactReference = referenceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if compactText.count < 24 || compactReference.count < 24 {
+            return imageSimilarity(image, referenceImage) >= 0.995
+        }
+        return false
+    }
+
+    private func normalizedWords(_ text: String) -> Set<String> {
+        let separators = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "가-힣")).inverted
+        return Set(
+            text.lowercased()
+                .components(separatedBy: separators)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { $0.count >= 2 }
+        )
+    }
+
+    private func normalizedGraySample(_ image: UIImage, width: Int, height: Int) -> [Double]? {
+        let upright = uprightImage(image)
+        guard let cg = upright.cgImage else { return nil }
+        var pixels = [UInt8](repeating: 255, count: width * height)
+        let ok = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let base = buffer.baseAddress,
+                  let context = CGContext(
+                    data: base,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: width,
+                    space: CGColorSpaceCreateDeviceGray(),
+                    bitmapInfo: CGImageAlphaInfo.none.rawValue
+                  ) else { return false }
+            context.interpolationQuality = .medium
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        return ok ? pixels.map(Double.init) : nil
     }
 
     private func uprightImage(_ image: UIImage) -> UIImage {

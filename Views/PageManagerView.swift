@@ -10,6 +10,10 @@ struct PageManagerView: View {
     @State private var pages: [PageRecord] = []
     @State private var showReplacementScanner = false
     @State private var replacingPageID: UUID?
+    @State private var showAppendScanner = false
+    @State private var pendingAppendScans: [UIImage] = []
+    @State private var appendQualityWarning: String?
+    @State private var completionNotice: String?
     @State private var processing = false
     @State private var processingMessage = "페이지 정리 중"
     @State private var errorMessage: String?
@@ -44,7 +48,17 @@ struct PageManagerView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("완료") { dismiss() }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if effectiveBook.scanProfile != nil {
+                        Button {
+                            showAppendScanner = true
+                        } label: {
+                            Image(systemName: "camera.badge.ellipsis")
+                        }
+                        .accessibilityLabel("이어 스캔")
+                        .disabled(processing)
+                    }
+
                     EditButton()
                 }
             }
@@ -70,6 +84,52 @@ struct PageManagerView: View {
                     replacingPageID = nil
                     errorMessage = error.localizedDescription
                 }
+            }
+            .sheet(isPresented: $showAppendScanner) {
+                DocumentScannerView { images in
+                    showAppendScanner = false
+                    guard !images.isEmpty else { return }
+                    handleAppendCaptured(images)
+                } onCancel: {
+                    showAppendScanner = false
+                } onError: { error in
+                    showAppendScanner = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+            .confirmationDialog(
+                "이어 스캔 품질 확인",
+                isPresented: Binding(
+                    get: { appendQualityWarning != nil },
+                    set: { if !$0 { appendQualityWarning = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("계속 추가") {
+                    let images = pendingAppendScans
+                    pendingAppendScans.removeAll()
+                    appendQualityWarning = nil
+                    Task { await appendCaptured(images) }
+                }
+                Button("다시 촬영", role: .destructive) {
+                    pendingAppendScans.removeAll()
+                    appendQualityWarning = nil
+                    showAppendScanner = true
+                }
+                Button("취소", role: .cancel) {
+                    pendingAppendScans.removeAll()
+                    appendQualityWarning = nil
+                }
+            } message: {
+                Text(appendQualityWarning ?? "")
+            }
+            .alert("이어 스캔 결과", isPresented: Binding(
+                get: { completionNotice != nil },
+                set: { if !$0 { completionNotice = nil } }
+            )) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text(completionNotice ?? "")
             }
             .alert("페이지 처리 오류", isPresented: Binding(
                 get: { errorMessage != nil },
@@ -153,6 +213,155 @@ struct PageManagerView: View {
             .disabled(processing)
         }
         .padding(.vertical, 3)
+    }
+
+    private var effectiveBook: Book {
+        library.book(with: book.id) ?? book
+    }
+
+    @MainActor
+    private func handleAppendCaptured(_ images: [UIImage]) {
+        var warnings: [String] = []
+        for (index, image) in images.enumerated() {
+            let report = processor.qualityReport(image)
+            if !report.isAcceptable {
+                warnings.append("촬영본 \(index + 1):\n\(report.summary)")
+            }
+        }
+
+        if warnings.isEmpty {
+            Task { await appendCaptured(images) }
+        } else {
+            pendingAppendScans = images
+            appendQualityWarning = warnings.joined(separator: "\n\n")
+        }
+    }
+
+    @MainActor
+    private func appendCaptured(_ scannedImages: [UIImage]) async {
+        guard let profile = effectiveBook.scanProfile, !scannedImages.isEmpty else { return }
+
+        processing = true
+        processingMessage = "이어 스캔 페이지 분리 · 보정 중"
+        defer { processing = false }
+
+        do {
+            var prepared: [UIImage] = []
+
+            for (captureIndex, image) in scannedImages.enumerated() {
+                processingMessage = "촬영본 \(captureIndex + 1) / \(scannedImages.count) 분리 · 보정 중"
+
+                if profile.captureMode == .doublePage {
+                    let splitPosition = profile.autoDetectSplit
+                        ? processor.suggestedSplitPosition(image)
+                        : profile.splitPosition
+                    let split = processor.splitDoublePage(image, splitPosition: splitPosition)
+                    var pair: [UIImage] = []
+
+                    if split.indices.contains(0) {
+                        pair.append(
+                            processor.preparePage(
+                                split[0],
+                                side: .left,
+                                geometryCorrectionEnabled: profile.geometryCorrectionEnabled,
+                                dewarpStrength: profile.dewarpStrength,
+                                trimSpineShadow: profile.trimSpineShadow
+                            )
+                        )
+                    }
+                    if split.indices.contains(1) {
+                        pair.append(
+                            processor.preparePage(
+                                split[1],
+                                side: .right,
+                                geometryCorrectionEnabled: profile.geometryCorrectionEnabled,
+                                dewarpStrength: profile.dewarpStrength,
+                                trimSpineShadow: profile.trimSpineShadow
+                            )
+                        )
+                    }
+
+                    if profile.readingOrder == .rightToLeft {
+                        pair.reverse()
+                    }
+                    prepared.append(contentsOf: pair)
+                } else {
+                    prepared.append(
+                        processor.preparePage(
+                            image,
+                            side: .single,
+                            geometryCorrectionEnabled: profile.geometryCorrectionEnabled,
+                            dewarpStrength: 0,
+                            trimSpineShadow: false
+                        )
+                    )
+                }
+            }
+
+            var acceptedRecords: [PageRecord] = []
+            var skippedDuplicates = 0
+
+            let existingTail: [(UIImage, String)] = pages.suffix(6).compactMap { page in
+                guard let image = pageStore.image(bookID: book.id, relativePath: page.imageRelativePath) else { return nil }
+                return (image, page.ocrText)
+            }
+            var references = existingTail
+
+            for (offset, image) in prepared.enumerated() {
+                processingMessage = "추가 페이지 \(offset + 1) / \(prepared.count) 규격 통일 · OCR 중"
+                let normalized = processor.normalize(image, profile: profile)
+                let recognized = try? await ocr.recognizeDetailed(image: normalized, languages: profile.ocrLanguages)
+                let text = recognized?.text ?? ""
+
+                let duplicate = references.suffix(6).contains { reference in
+                    processor.isLikelyDuplicate(
+                        image: normalized,
+                        text: text,
+                        referenceImage: reference.0,
+                        referenceText: reference.1
+                    )
+                }
+
+                if duplicate {
+                    skippedDuplicates += 1
+                    continue
+                }
+
+                let newIndex = pages.count + acceptedRecords.count
+                let relativePath = try pageStore.saveJPEG(normalized, bookID: book.id, index: newIndex)
+                let record = PageRecord(
+                    index: newIndex,
+                    imageRelativePath: relativePath,
+                    ocrText: text,
+                    ocrBlocks: recognized?.blocks ?? []
+                )
+                acceptedRecords.append(record)
+                references.append((normalized, text))
+            }
+
+            guard !acceptedRecords.isEmpty else {
+                completionNotice = skippedDuplicates > 0
+                    ? "추가할 새 페이지가 없었습니다. \(skippedDuplicates)페이지가 직전 페이지와 중복된 것으로 판단됐습니다."
+                    : "추가할 페이지가 없습니다."
+                return
+            }
+
+            pages.append(contentsOf: acceptedRecords)
+            normalizeIndices()
+            try pageStore.savePages(pages, bookID: book.id)
+            processingMessage = "검색 가능한 PDF 다시 만드는 중"
+            try rebuildPDF()
+            updateBookMetadata()
+
+            let added = acceptedRecords.count
+            if skippedDuplicates > 0 {
+                completionNotice = "\(added)페이지를 추가했습니다. 이어 스캔 경계에서 반복 촬영된 것으로 보이는 \(skippedDuplicates)페이지는 제외했습니다."
+            } else {
+                completionNotice = "\(added)페이지를 이어서 추가했습니다. 현재 총 \(pages.count)페이지입니다."
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func load() {
