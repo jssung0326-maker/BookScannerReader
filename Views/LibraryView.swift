@@ -6,9 +6,20 @@ struct LibraryView: View {
     @EnvironmentObject private var library: LibraryStore
     @State private var showNewScan = false
     @State private var showPDFImporter = false
+    @State private var showSettings = false
+    @State private var searchText = ""
     @State private var importError: String?
 
     private let pdfService = PDFService()
+
+    private var filteredBooks: [Book] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return library.books }
+        return library.books.filter {
+            $0.title.localizedCaseInsensitiveContains(query) ||
+            $0.author.localizedCaseInsensitiveContains(query)
+        }
+    }
 
     private var recentBooks: [Book] {
         library.books
@@ -45,21 +56,35 @@ struct LibraryView: View {
                         }
                     }
 
-                    Section("전체 서재") {
-                        ForEach(library.books) { book in
+                    Section(searchText.isEmpty ? "전체 서재" : "검색 결과") {
+                        if filteredBooks.isEmpty {
+                            ContentUnavailableView.search(text: searchText)
+                        } else {
+                            ForEach(filteredBooks) { book in
                             NavigationLink(value: book) {
                                 BookRow(book: book)
                             }
+                            }
+                            .onDelete(perform: removeFilteredBooks)
                         }
-                        .onDelete(perform: library.remove)
                     }
                 }
             }
             .navigationTitle("내 서재")
+            .searchable(text: $searchText, prompt: "제목 또는 저자 검색")
             .navigationDestination(for: Book.self) { book in
                 BookReaderScreen(book: book)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("설정")
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button {
@@ -78,6 +103,9 @@ struct LibraryView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
             .sheet(isPresented: $showNewScan) {
                 NewScanBookView()
                     .environmentObject(library)
@@ -94,7 +122,23 @@ struct LibraryView: View {
             } message: {
                 Text(importError ?? "알 수 없는 오류")
             }
+            .alert("저장 오류", isPresented: Binding(
+                get: { library.lastErrorMessage != nil },
+                set: { if !$0 { library.lastErrorMessage = nil } }
+            )) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text(library.lastErrorMessage ?? "알 수 없는 오류")
+            }
         }
+    }
+
+
+    private func removeFilteredBooks(at offsets: IndexSet) {
+        let ids = offsets.compactMap { index in
+            filteredBooks.indices.contains(index) ? filteredBooks[index].id : nil
+        }
+        library.removeBooks(withIDs: Set(ids))
     }
 
     private func importPDF(_ result: Result<[URL], Error>) {
@@ -107,6 +151,10 @@ struct LibraryView: View {
             _ = try pdfService.copyImportedPDF(from: source, bookID: id)
             let importedURL = StoragePaths.pdfURL(bookID: id)
             let info = pdfService.documentInfo(at: importedURL)
+            guard info.pageCount > 0 else {
+                try? FileManager.default.removeItem(at: StoragePaths.bookDirectory(bookID: id))
+                throw PDFImportError.emptyDocument
+            }
             let fallbackTitle = source.deletingPathExtension().lastPathComponent
             let title = info.title?.trimmingCharacters(in: .whitespacesAndNewlines)
             let author = info.author?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -120,6 +168,17 @@ struct LibraryView: View {
             library.add(book)
         } catch {
             importError = error.localizedDescription
+        }
+    }
+}
+
+private enum PDFImportError: LocalizedError {
+    case emptyDocument
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyDocument:
+            return "페이지가 없는 PDF는 가져올 수 없습니다."
         }
     }
 }

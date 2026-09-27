@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class LibraryStore: ObservableObject {
     @Published private(set) var books: [Book] = []
+    @Published var lastErrorMessage: String?
 
     private let fm = FileManager.default
 
@@ -23,13 +24,28 @@ final class LibraryStore: ObservableObject {
     }
 
     func remove(at offsets: IndexSet) {
-        for index in offsets {
-            let book = books[index]
-            try? fm.removeItem(at: StoragePaths.bookDirectory(bookID: book.id))
+        let ids = Set(offsets.compactMap { index in
+            books.indices.contains(index) ? books[index].id : nil
+        })
+        removeBooks(withIDs: ids)
+    }
+
+    func removeBooks(withIDs ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+
+        for book in books where ids.contains(book.id) {
+            let directory = StoragePaths.bookDirectory(bookID: book.id)
+            if fm.fileExists(atPath: directory.path) {
+                do {
+                    try fm.removeItem(at: directory)
+                } catch {
+                    lastErrorMessage = "책 파일을 삭제하지 못했습니다: \(error.localizedDescription)"
+                    return
+                }
+            }
         }
-        for index in offsets.sorted(by: >) {
-            books.remove(at: index)
-        }
+
+        books.removeAll { ids.contains($0.id) }
         save()
     }
 
@@ -38,8 +54,14 @@ final class LibraryStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: StoragePaths.libraryFile) else { return }
-        books = (try? JSONDecoder.bookDecoder.decode([Book].self, from: data)) ?? []
+        guard FileManager.default.fileExists(atPath: StoragePaths.libraryFile.path) else { return }
+        do {
+            let data = try Data(contentsOf: StoragePaths.libraryFile)
+            books = try JSONDecoder.bookDecoder.decode([Book].self, from: data)
+        } catch {
+            books = []
+            lastErrorMessage = "서재 정보를 읽지 못했습니다. 기존 파일은 삭제하지 않았습니다: \(error.localizedDescription)"
+        }
     }
 
     private func save() {
@@ -48,6 +70,7 @@ final class LibraryStore: ObservableObject {
             let data = try JSONEncoder.bookEncoder.encode(books)
             try data.write(to: StoragePaths.libraryFile, options: .atomic)
         } catch {
+            lastErrorMessage = "서재 정보를 저장하지 못했습니다: \(error.localizedDescription)"
             print("Library save failed: \(error)")
         }
     }

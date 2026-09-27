@@ -7,6 +7,8 @@ struct NewScanBookView: View {
     @EnvironmentObject private var library: LibraryStore
 
     @State private var title = "새 책"
+    @State private var author = ""
+    @State private var appliedDefaults = false
     @State private var captureMode: ScanProfile.CaptureMode = .doublePage
     @State private var captureEngine: ScanProfile.CaptureEngine = .bookAutoCamera
     @State private var autoCaptureEnabled = true
@@ -38,6 +40,7 @@ struct NewScanBookView: View {
             Form {
                 Section("책") {
                     TextField("책 제목", text: $title)
+                    TextField("저자 (선택)", text: $author)
                 }
 
                 Section("스캔 방식") {
@@ -208,6 +211,9 @@ struct NewScanBookView: View {
                 }
             }
             .navigationTitle("책 스캔")
+            .onAppear {
+                applyDefaultPreferencesIfNeeded()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }
@@ -324,6 +330,24 @@ struct NewScanBookView: View {
     }
 
     @MainActor
+    private func applyDefaultPreferencesIfNeeded() {
+        guard !appliedDefaults else { return }
+        appliedDefaults = true
+
+        let defaults = UserDefaults.standard
+        captureMode = ScanProfile.CaptureMode(rawValue: defaults.string(forKey: AppPreferences.defaultCaptureMode) ?? "") ?? .doublePage
+        captureEngine = ScanProfile.CaptureEngine(rawValue: defaults.string(forKey: AppPreferences.defaultCaptureEngine) ?? "") ?? .bookAutoCamera
+        fitMode = ScanProfile.FitMode(rawValue: defaults.string(forKey: AppPreferences.defaultFitMode) ?? "") ?? .aspectFit
+        readingOrder = ScanProfile.ReadingOrder(rawValue: defaults.string(forKey: AppPreferences.defaultReadingOrder) ?? "") ?? .leftToRight
+        autoCaptureEnabled = defaults.bool(forKey: AppPreferences.defaultAutoCaptureEnabled)
+        minimumLiveQualityScore = min(max(defaults.integer(forKey: AppPreferences.defaultMinimumLiveQualityScore), 50), 85)
+        autoCaptureDelay = min(max(defaults.double(forKey: AppPreferences.defaultAutoCaptureDelay), 0.4), 1.6)
+        geometryCorrectionEnabled = defaults.bool(forKey: AppPreferences.defaultGeometryCorrectionEnabled)
+        trimSpineShadow = defaults.bool(forKey: AppPreferences.defaultTrimSpineShadow)
+        dewarpStrength = min(max(defaults.double(forKey: AppPreferences.defaultDewarpStrength), 0), 1)
+    }
+
+    @MainActor
     private func process(_ scannedImages: [UIImage]) async {
         processing = true
         processingMessage = "페이지 분리 및 원근 보정 중"
@@ -428,16 +452,20 @@ struct NewScanBookView: View {
             let searchablePages = zip(normalizedImages, records).map { image, record in
                 PDFService.SearchablePage(image: image, text: record.ocrText, blocks: record.ocrBlocks)
             }
-            let bookTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "새 책" : title
+            let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let bookTitle = trimmedTitle.isEmpty ? "새 책" : trimmedTitle
+            let bookAuthor = author.trimmingCharacters(in: .whitespacesAndNewlines)
             try pdf.makeSearchablePDF(
                 pages: searchablePages,
                 destination: pdfURL,
-                title: bookTitle
+                title: bookTitle,
+                author: bookAuthor
             )
 
             let book = Book(
                 id: bookID,
                 title: bookTitle,
+                author: bookAuthor,
                 pageCount: records.count,
                 pdfRelativePath: "book.pdf",
                 scanProfile: profile
