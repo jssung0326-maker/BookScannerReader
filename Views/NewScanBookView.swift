@@ -330,13 +330,14 @@ struct NewScanBookView: View {
 
                 let normalized = processor.normalize(image, profile: profile)
                 let relativePath = try pageStore.saveJPEG(normalized, bookID: bookID, index: index)
-                let recognized = (try? await ocr.recognize(image: normalized, languages: profile.ocrLanguages)) ?? ""
+                let recognized = try? await ocr.recognizeDetailed(image: normalized, languages: profile.ocrLanguages)
 
                 records.append(
                     PageRecord(
                         index: index,
                         imageRelativePath: relativePath,
-                        ocrText: recognized
+                        ocrText: recognized?.text ?? "",
+                        ocrBlocks: recognized?.blocks ?? []
                     )
                 )
                 normalizedImages.append(normalized)
@@ -346,13 +347,18 @@ struct NewScanBookView: View {
             try pageStore.savePages(records, bookID: bookID)
             let pdfURL = StoragePaths.pdfURL(bookID: bookID)
             let searchablePages = zip(normalizedImages, records).map { image, record in
-                PDFService.SearchablePage(image: image, text: record.ocrText)
+                PDFService.SearchablePage(image: image, text: record.ocrText, blocks: record.ocrBlocks)
             }
-            try pdf.makeSearchablePDF(pages: searchablePages, destination: pdfURL)
+            let bookTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "새 책" : title
+            try pdf.makeSearchablePDF(
+                pages: searchablePages,
+                destination: pdfURL,
+                title: bookTitle
+            )
 
             let book = Book(
                 id: bookID,
-                title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "새 책" : title,
+                title: bookTitle,
                 pageCount: records.count,
                 pdfRelativePath: "book.pdf",
                 scanProfile: profile

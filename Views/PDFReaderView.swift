@@ -1,9 +1,31 @@
 import SwiftUI
 import PDFKit
 
+enum PDFReaderLayout: String, CaseIterable, Identifiable {
+    case verticalContinuous
+    case horizontalPaging
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .verticalContinuous: return "세로 스크롤"
+        case .horizontalPaging: return "가로 페이지 넘김"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .verticalContinuous: return "arrow.up.and.down.text.horizontal"
+        case .horizontalPaging: return "rectangle.portrait.on.rectangle.portrait"
+        }
+    }
+}
+
 struct PDFReaderView: UIViewRepresentable {
     let url: URL
     @Binding var pageIndex: Int
+    let layout: PDFReaderLayout
 
     func makeCoordinator() -> Coordinator {
         Coordinator(pageIndex: $pageIndex)
@@ -12,9 +34,8 @@ struct PDFReaderView: UIViewRepresentable {
     func makeUIView(context: Context) -> PDFView {
         let view = PDFView()
         view.autoScales = true
-        view.displayMode = .singlePageContinuous
-        view.displayDirection = .vertical
-        view.usePageViewController(false)
+        view.displaysPageBreaks = true
+        configure(view)
 
         if let document = PDFDocument(url: url) {
             view.document = document
@@ -34,6 +55,7 @@ struct PDFReaderView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: PDFView, context: Context) {
+        configure(uiView)
         guard let document = uiView.document, document.pageCount > 0 else { return }
         let safeIndex = min(max(pageIndex, 0), document.pageCount - 1)
         if let current = uiView.currentPage,
@@ -42,6 +64,19 @@ struct PDFReaderView: UIViewRepresentable {
         }
         if let page = document.page(at: safeIndex) {
             uiView.go(to: page)
+        }
+    }
+
+    private func configure(_ view: PDFView) {
+        switch layout {
+        case .verticalContinuous:
+            view.usePageViewController(false)
+            view.displayMode = .singlePageContinuous
+            view.displayDirection = .vertical
+        case .horizontalPaging:
+            view.displayMode = .singlePage
+            view.displayDirection = .horizontal
+            view.usePageViewController(true, withViewOptions: nil)
         }
     }
 

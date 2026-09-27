@@ -22,11 +22,26 @@ struct LibraryView: View {
                 } else {
                     ForEach(library.books) { book in
                         NavigationLink(value: book) {
-                            VStack(alignment: .leading, spacing: 5) {
+                            VStack(alignment: .leading, spacing: 6) {
                                 Text(book.title).font(.headline)
-                                Text("\(book.pageCount)페이지")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                if !book.author.isEmpty {
+                                    Text(book.author)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 8) {
+                                    Text("\(book.pageCount)페이지")
+                                    if book.pageCount > 0 {
+                                        Text("·")
+                                        Text("최근 \(min(book.currentPageIndex + 1, book.pageCount))페이지")
+                                    }
+                                    if !book.bookmarkedPageIndices.isEmpty {
+                                        Text("·")
+                                        Label("\(book.bookmarkedPageIndices.count)", systemImage: "bookmark.fill")
+                                    }
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -83,9 +98,18 @@ struct LibraryView: View {
 
             let id = UUID()
             _ = try pdfService.copyImportedPDF(from: source, bookID: id)
-            let doc = PDFDocument(url: StoragePaths.pdfURL(bookID: id))
-            let title = source.deletingPathExtension().lastPathComponent
-            let book = Book(id: id, title: title, pageCount: doc?.pageCount ?? 0, pdfRelativePath: "book.pdf")
+            let importedURL = StoragePaths.pdfURL(bookID: id)
+            let info = pdfService.documentInfo(at: importedURL)
+            let fallbackTitle = source.deletingPathExtension().lastPathComponent
+            let title = info.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let author = info.author?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let book = Book(
+                id: id,
+                title: (title?.isEmpty == false ? title! : fallbackTitle),
+                author: author ?? "",
+                pageCount: info.pageCount,
+                pdfRelativePath: "book.pdf"
+            )
             library.add(book)
         } catch {
             importError = error.localizedDescription

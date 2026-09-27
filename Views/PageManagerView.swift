@@ -167,15 +167,23 @@ struct PageManagerView: View {
     }
 
     private func movePages(from source: IndexSet, to destination: Int) {
+        let preservedBookmarkIDs = bookmarkedPageIDs()
         pages.move(fromOffsets: source, toOffset: destination)
         normalizeIndices()
-        Task { await persistAndRebuildPDF(message: "페이지 순서 변경 중") }
+        Task {
+            await persistAndRebuildPDF(
+                message: "페이지 순서 변경 중",
+                preservedBookmarkIDs: preservedBookmarkIDs
+            )
+        }
     }
 
     private func deletePages(at offsets: IndexSet) {
         let deleting = offsets.compactMap { index in
             pages.indices.contains(index) ? pages[index] : nil
         }
+        let deletingIDs = Set(deleting.map(\.id))
+        let preservedBookmarkIDs = bookmarkedPageIDs().subtracting(deletingIDs)
 
         do {
             for page in deleting {
@@ -183,7 +191,12 @@ struct PageManagerView: View {
             }
             pages.remove(atOffsets: offsets)
             normalizeIndices()
-            Task { await persistAndRebuildPDF(message: "페이지 삭제 반영 중") }
+            Task {
+                await persistAndRebuildPDF(
+                    message: "페이지 삭제 반영 중",
+                    preservedBookmarkIDs: preservedBookmarkIDs
+                )
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -202,7 +215,9 @@ struct PageManagerView: View {
             let rotated = rotate90(image, clockwise: clockwise)
             try pageStore.overwriteJPEG(rotated, bookID: book.id, relativePath: pages[index].imageRelativePath)
             let languages = book.scanProfile?.ocrLanguages ?? ["ko-KR", "en-US"]
-            pages[index].ocrText = (try? await ocr.recognize(image: rotated, languages: languages)) ?? ""
+            let recognized = try? await ocr.recognizeDetailed(image: rotated, languages: languages)
+            pages[index].ocrText = recognized?.text ?? ""
+            pages[index].ocrBlocks = recognized?.blocks ?? []
             normalizeIndices()
             try pageStore.savePages(pages, bookID: book.id)
             try rebuildPDF()
@@ -233,7 +248,9 @@ struct PageManagerView: View {
             )
             let normalized = processor.normalize(prepared, profile: profile)
             try pageStore.overwriteJPEG(normalized, bookID: book.id, relativePath: pages[index].imageRelativePath)
-            pages[index].ocrText = (try? await ocr.recognize(image: normalized, languages: profile.ocrLanguages)) ?? ""
+            let recognized = try? await ocr.recognizeDetailed(image: normalized, languages: profile.ocrLanguages)
+            pages[index].ocrText = recognized?.text ?? ""
+            pages[index].ocrBlocks = recognized?.blocks ?? []
             normalizeIndices()
             try pageStore.savePages(pages, bookID: book.id)
             try rebuildPDF()
@@ -244,7 +261,10 @@ struct PageManagerView: View {
     }
 
     @MainActor
-    private func persistAndRebuildPDF(message: String) async {
+    private func persistAndRebuildPDF(
+        message: String,
+        preservedBookmarkIDs: Set<UUID>? = nil
+    ) async {
         processing = true
         processingMessage = message
         defer { processing = false }
@@ -253,7 +273,7 @@ struct PageManagerView: View {
             normalizeIndices()
             try pageStore.savePages(pages, bookID: book.id)
             try rebuildPDF()
-            updateBookMetadata()
+            updateBookMetadata(preservedBookmarkIDs: preservedBookmarkIDs)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -262,7 +282,7 @@ struct PageManagerView: View {
     private func rebuildPDF() throws {
         let searchablePages: [PDFService.SearchablePage] = pages.compactMap { page in
             guard let image = pageStore.image(bookID: book.id, relativePath: page.imageRelativePath) else { return nil }
-            return PDFService.SearchablePage(image: image, text: page.ocrText)
+            return PDFService.SearchablePage(image: image, text: page.ocrText, blocks: page.ocrBlocks)
         }
 
         guard !searchablePages.isEmpty else {
@@ -275,18 +295,36 @@ struct PageManagerView: View {
 
         try pdfService.makeSearchablePDF(
             pages: searchablePages,
-            destination: StoragePaths.pdfURL(bookID: book.id)
+            destination: StoragePaths.pdfURL(bookID: book.id),
+            title: book.title,
+            author: book.author
         )
     }
 
     @MainActor
-    private func updateBookMetadata() {
+    private func updateBookMetadata(preservedBookmarkIDs: Set<UUID>? = nil) {
         var updated = library.book(with: book.id) ?? book
         updated.pageCount = pages.count
         updated.updatedAt = .now
         updated.currentPageIndex = min(updated.currentPageIndex, max(pages.count - 1, 0))
         updated.pdfRelativePath = pages.isEmpty ? nil : "book.pdf"
+
+        if let preservedBookmarkIDs {
+            updated.bookmarkedPageIndices = pages.enumerated().compactMap { index, page in
+                preservedBookmarkIDs.contains(page.id) ? index : nil
+            }
+        } else {
+            updated.bookmarkedPageIndices = updated.bookmarkedPageIndices.filter { $0 >= 0 && $0 < pages.count }
+        }
+
         library.update(updated)
+    }
+
+    private func bookmarkedPageIDs() -> Set<UUID> {
+        let indices = Set((library.book(with: book.id) ?? book).bookmarkedPageIndices)
+        return Set(pages.enumerated().compactMap { index, page in
+            indices.contains(index) ? page.id : nil
+        })
     }
 
     private func pageSide(for index: Int, profile: ScanProfile) -> ScanProcessingService.PageSide {
