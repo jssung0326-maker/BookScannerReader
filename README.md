@@ -1,74 +1,97 @@
-# BookScannerReader
+# BookScannerReader v0.3
 
-iPhone용 책 스캔 + OCR + PDF Reader 프로토타입입니다.
+iPhone용 **책 전용 스캐너 + OCR + PDF Reader** 프로토타입입니다.
 
-## 현재 포함된 1차 기능
-- 서재(책 목록) 기본 구조
+## v0.3 핵심 변경 사항
+
+- 1페이지 / 펼친 2페이지 촬영 모드
+- 2페이지 촬영 후 **좌/우 페이지를 각각 독립 페이지로 분리**
+- 중앙 제본선 후보 **자동 검출**
+- 자동 검출 결과를 첫 촬영본에서 미리 확인
+- 자동 검출을 끄면 **40~60% 범위에서 분리선을 수동 조정** 가능
+- 왼쪽→오른쪽 / 오른쪽→왼쪽 페이지 순서 선택
+- 분리된 좌/우 페이지 각각에 **독립 원근 보정 시도**
+- 첫 번째 분리·보정 페이지의 가로:세로 비율을 해당 책의 기준 규격으로 저장
+- 이후 모든 페이지를 동일한 출력 캔버스 크기로 정규화
+- 페이지 번호를 분리 결과 순서대로 자동 부여
+- v0.2에서 저장된 `ScanProfile`을 v0.3에서도 열 수 있도록 하위 호환 처리
+- 버전 `0.3`, 빌드 `3`
+
+## 기존 기능
+
+- 서재(책 목록)
 - VisionKit 문서 스캔
-- 1페이지/2페이지 촬영 모드
-- 2페이지 촬영 시 좌/우 페이지 분리
-- 첫 페이지를 기준으로 페이지 가로:세로 비율 저장(ScanProfile)
-- 이후 페이지를 기준 비율의 동일 캔버스로 정규화
-- OCR (한국어/영어 우선)
+- 한국어/영어 OCR
 - 스캔 이미지 → PDF 생성
 - 기존 PDF 가져오기
 - PDFKit 기반 PDF Reader
 - OCR 텍스트 음성 읽기(TTS)
-- 사용자 책 데이터는 앱 Documents 폴더에 저장, Git 저장소와 분리
+- 사용자 책 데이터는 앱 Documents 폴더에 저장하여 Git 저장소와 분리
+
+## 현재 스캔 흐름
+
+```text
+책 만들기
+  → 1페이지 / 2페이지 촬영 선택
+  → VisionKit으로 연속 촬영
+  → 2페이지 모드: 제본선 검출 또는 수동 분리선 확인
+  → 좌/우 페이지 분리
+  → 각 페이지 독립 원근 보정 시도
+  → 첫 페이지 비율을 기준 규격으로 저장
+  → 모든 페이지 동일 규격으로 정규화
+  → OCR
+  → PDF 생성
+  → 서재 등록
+```
 
 ## 중요한 현재 한계
-1. 2페이지 분리는 현재 중앙 50% 기준의 안전한 1차 구현입니다. 다음 단계에서 제본선 자동 검출로 교체합니다.
-2. 책 중앙의 곡면(dewarp) 보정은 아직 미구현입니다.
-3. 첫 사진만으로 실제 mm 단위 종이 크기를 정확히 알 수는 없습니다. 현재는 첫 페이지의 비율을 기준 규격으로 사용합니다. 실제 A4/B5/사용자 mm 입력 기능은 다음 단계에서 추가할 수 있습니다.
-4. Xcode/iOS SDK가 필요한 실제 빌드 검증은 macOS + Xcode에서 수행해야 합니다.
 
-## 권장 환경
-- macOS + Xcode 최신 안정 버전
-- iOS 18 이상 권장
-- SwiftUI
-
-## Xcode 프로젝트 생성 방법
-1. Xcode에서 **iOS > App** 프로젝트 생성
-2. Product Name: `BookScannerReader`
-3. Interface: SwiftUI / Language: Swift
-4. 생성된 기본 Swift 파일을 삭제하거나 대체하고, 이 폴더의 `App`, `Models`, `Services`, `Views`, `Utilities` 폴더를 프로젝트에 추가
-5. `Info.plist`에 아래 Camera Usage Description 추가
-   - `Privacy - Camera Usage Description`: `책과 문서를 스캔하기 위해 카메라를 사용합니다.`
+1. **제본선 자동 검출은 v0.3의 1차 알고리즘**입니다. 중앙부의 어두운 제본선을 우선 탐색하며, 검출이 불확실하면 50% 중앙값을 사용합니다.
+2. v0.3의 원근 보정은 각 분리 페이지에서 큰 사각형이 신뢰성 있게 검출될 때만 적용합니다. 검출이 불확실하면 원본 분리 페이지를 유지합니다.
+3. 책 중앙의 **곡면(dewarp) 보정**은 아직 미구현입니다.
+4. 손가락/그림자 제거, 흔들림 검사, 자동 촬영은 아직 미구현입니다.
+5. 첫 사진만으로 실제 종이의 정확한 mm 크기를 알 수는 없습니다. 현재는 첫 페이지 비율과 기준 픽셀 폭을 사용합니다.
+6. 실제 iPhone 빌드/서명 검증은 macOS + Xcode가 필요합니다. GitHub Actions에서는 Simulator 빌드 검사를 수행합니다.
 
 ## 데이터 저장 구조
-앱 실행 데이터는 Git 저장소가 아니라 iPhone 앱 Documents 아래에 저장합니다.
 
-```
+```text
 Documents/
   Library.json
   Books/
     <book-id>/
       pages/
+        00001.jpg
+        00002.jpg
+        ...
+      pages.json
       book.pdf
 ```
 
-## 다음 구현 우선순위
-1. 제본선 자동 검출 및 좌/우 독립 perspective 보정
-2. 기준 페이지 네 모서리 수동 조정 UI
-3. 페이지 썸네일 관리/재촬영/순서 변경
-4. 검색 가능한 OCR text layer PDF
-5. 자동 촬영/흔들림 검사/중복 페이지 감지
-6. 책 곡면(dewarp) 보정
-7. 북마크/주석/전체 텍스트 검색
-8. iCloud 동기화
+## GitHub 업데이트 방법
 
+v0.2 저장소에 v0.3 압축을 푼 뒤 아래 항목을 다시 업로드하면 됩니다.
 
-## v0.2 추가
+```text
+App/
+Models/
+Services/
+Utilities/
+Views/
+Resources/
+BookScannerReader.xcodeproj/
+README.md
+.gitignore
+```
 
-- `BookScannerReader.xcodeproj` 포함: Mac의 Xcode에서 바로 열 수 있는 프로젝트 구조
-- 카메라 권한 설명(`Resources/Info.plist`) 포함
-- GitHub Actions 빌드 검사(`.github/workflows/ios-build.yml`) 포함
-- 기본 Bundle ID: `com.jssung0326.BookScannerReader` (필요 시 Xcode Signing & Capabilities에서 변경)
+`.github/workflows/ios-build.yml`은 v0.2와 동일하므로 이미 GitHub에 있다면 다시 만들 필요가 없습니다.
 
-### iPhone에서 실행
-1. Mac에서 저장소를 Clone합니다.
-2. `BookScannerReader.xcodeproj`를 Xcode로 엽니다.
-3. Target > Signing & Capabilities에서 자신의 Apple ID Team을 선택합니다.
-4. iPhone을 연결하고 Run을 누릅니다.
+업로드 후 `Commit changes`를 누르고 **Actions → iOS Build Check**가 초록색인지 확인합니다.
 
-> GitHub에서 TestFlight까지 자동 배포하려면 Apple Developer Program/App Store Connect 설정과 서명용 자격 증명이 추가로 필요합니다.
+## 다음 우선순위 (v0.4)
+
+1. 페이지 네 모서리 검출 정확도 강화
+2. 제본선/페이지 경계 수동 보정 UI 강화
+3. 책 중앙 곡면(dewarp) 보정 1차 구현
+4. 페이지 썸네일 관리
+5. 페이지 재촬영/교체/삭제/순서 변경
