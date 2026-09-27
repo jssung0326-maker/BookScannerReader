@@ -58,6 +58,13 @@ struct ScanProfile: Codable, Hashable {
     /// 두 페이지 촬영 후 페이지를 저장하는 순서입니다.
     var readingOrder: ReadingOrder
 
+    /// 페이지 외곽 사각형 검출 및 원근 보정을 사용합니다.
+    var geometryCorrectionEnabled: Bool
+    /// 펼친 책 중앙부의 곡면 왜곡을 완화하는 1차 보정 강도(0...1).
+    var dewarpStrength: Double
+    /// 제본부 그림자/검은 여백 자동 제거 사용 여부입니다.
+    var trimSpineShadow: Bool
+
     var outputHeightPixels: Int {
         guard pageAspectRatio > 0 else { return outputWidthPixels }
         return Int((Double(outputWidthPixels) / pageAspectRatio).rounded())
@@ -71,7 +78,10 @@ struct ScanProfile: Codable, Hashable {
         ocrLanguages: [String],
         splitPosition: Double = 0.5,
         autoDetectSplit: Bool = true,
-        readingOrder: ReadingOrder = .leftToRight
+        readingOrder: ReadingOrder = .leftToRight,
+        geometryCorrectionEnabled: Bool = true,
+        dewarpStrength: Double = 0.35,
+        trimSpineShadow: Bool = true
     ) {
         self.captureMode = captureMode
         self.pageAspectRatio = pageAspectRatio
@@ -81,6 +91,9 @@ struct ScanProfile: Codable, Hashable {
         self.splitPosition = min(max(splitPosition, 0.35), 0.65)
         self.autoDetectSplit = autoDetectSplit
         self.readingOrder = readingOrder
+        self.geometryCorrectionEnabled = geometryCorrectionEnabled
+        self.dewarpStrength = min(max(dewarpStrength, 0.0), 1.0)
+        self.trimSpineShadow = trimSpineShadow
     }
 
     static let initial = ScanProfile(
@@ -91,7 +104,10 @@ struct ScanProfile: Codable, Hashable {
         ocrLanguages: ["ko-KR", "en-US"],
         splitPosition: 0.5,
         autoDetectSplit: true,
-        readingOrder: .leftToRight
+        readingOrder: .leftToRight,
+        geometryCorrectionEnabled: true,
+        dewarpStrength: 0.35,
+        trimSpineShadow: true
     )
 
     private enum CodingKeys: String, CodingKey {
@@ -103,9 +119,12 @@ struct ScanProfile: Codable, Hashable {
         case splitPosition
         case autoDetectSplit
         case readingOrder
+        case geometryCorrectionEnabled
+        case dewarpStrength
+        case trimSpineShadow
     }
 
-    /// v0.2에서 저장한 ScanProfile에도 새 기본값을 넣어 그대로 열 수 있도록 합니다.
+    /// v0.2/v0.3에서 저장한 ScanProfile에도 새 기본값을 넣어 그대로 열 수 있도록 합니다.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         captureMode = try container.decode(CaptureMode.self, forKey: .captureMode)
@@ -116,6 +135,9 @@ struct ScanProfile: Codable, Hashable {
         splitPosition = try container.decodeIfPresent(Double.self, forKey: .splitPosition) ?? 0.5
         autoDetectSplit = try container.decodeIfPresent(Bool.self, forKey: .autoDetectSplit) ?? true
         readingOrder = try container.decodeIfPresent(ReadingOrder.self, forKey: .readingOrder) ?? .leftToRight
+        geometryCorrectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .geometryCorrectionEnabled) ?? true
+        dewarpStrength = min(max(try container.decodeIfPresent(Double.self, forKey: .dewarpStrength) ?? 0.35, 0.0), 1.0)
+        trimSpineShadow = try container.decodeIfPresent(Bool.self, forKey: .trimSpineShadow) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -128,5 +150,8 @@ struct ScanProfile: Codable, Hashable {
         try container.encode(splitPosition, forKey: .splitPosition)
         try container.encode(autoDetectSplit, forKey: .autoDetectSplit)
         try container.encode(readingOrder, forKey: .readingOrder)
+        try container.encode(geometryCorrectionEnabled, forKey: .geometryCorrectionEnabled)
+        try container.encode(dewarpStrength, forKey: .dewarpStrength)
+        try container.encode(trimSpineShadow, forKey: .trimSpineShadow)
     }
 }

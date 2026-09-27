@@ -11,6 +11,9 @@ struct NewScanBookView: View {
     @State private var readingOrder: ScanProfile.ReadingOrder = .leftToRight
     @State private var autoDetectSplit = true
     @State private var splitPosition = 0.5
+    @State private var geometryCorrectionEnabled = true
+    @State private var trimSpineShadow = true
+    @State private var dewarpStrength = 0.35
 
     @State private var showScanner = false
     @State private var pendingScans: [UIImage] = []
@@ -56,6 +59,28 @@ struct NewScanBookView: View {
                     Text("첫 번째로 분리·보정된 페이지의 가로:세로 비율을 이 책의 기준 규격으로 저장하고, 이후 페이지를 같은 크기로 맞춥니다.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("페이지 보정") {
+                    Toggle("페이지 경계 · 원근 자동 보정", isOn: $geometryCorrectionEnabled)
+
+                    if captureMode == .doublePage {
+                        Toggle("제본부 그림자 자동 제거", isOn: $trimSpineShadow)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("곡면 보정 강도")
+                                Spacer()
+                                Text("\(Int((dewarpStrength * 100).rounded()))%")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Slider(value: $dewarpStrength, in: 0...1, step: 0.05)
+                        }
+
+                        Text("곡면 보정은 제본부 가까운 글자가 눌려 보이는 현상을 완화하는 1차 보정입니다. 과하게 보이면 강도를 낮추세요.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if captureMode == .doublePage, let firstScan = pendingScans.first {
@@ -190,15 +215,46 @@ struct NewScanBookView: View {
                         ? processor.suggestedSplitPosition(image)
                         : splitPosition
 
-                    var pair = processor.splitDoublePage(image, splitPosition: effectiveSplit)
-                        .map { processor.correctPerspective($0) }
+                    let split = processor.splitDoublePage(image, splitPosition: effectiveSplit)
+                    var pair: [UIImage] = []
+
+                    if split.indices.contains(0) {
+                        pair.append(
+                            processor.preparePage(
+                                split[0],
+                                side: .left,
+                                geometryCorrectionEnabled: geometryCorrectionEnabled,
+                                dewarpStrength: dewarpStrength,
+                                trimSpineShadow: trimSpineShadow
+                            )
+                        )
+                    }
+                    if split.indices.contains(1) {
+                        pair.append(
+                            processor.preparePage(
+                                split[1],
+                                side: .right,
+                                geometryCorrectionEnabled: geometryCorrectionEnabled,
+                                dewarpStrength: dewarpStrength,
+                                trimSpineShadow: trimSpineShadow
+                            )
+                        )
+                    }
 
                     if readingOrder == .rightToLeft {
                         pair.reverse()
                     }
                     preparedPages.append(contentsOf: pair)
                 } else {
-                    preparedPages.append(processor.correctPerspective(image))
+                    preparedPages.append(
+                        processor.preparePage(
+                            image,
+                            side: .single,
+                            geometryCorrectionEnabled: geometryCorrectionEnabled,
+                            dewarpStrength: 0,
+                            trimSpineShadow: false
+                        )
+                    )
                 }
             }
 
@@ -211,6 +267,9 @@ struct NewScanBookView: View {
                 ? (autoDetectSplit ? processor.suggestedSplitPosition(scannedImages[0]) : splitPosition)
                 : 0.5
             profile.readingOrder = readingOrder
+            profile.geometryCorrectionEnabled = geometryCorrectionEnabled
+            profile.dewarpStrength = captureMode == .doublePage ? dewarpStrength : 0
+            profile.trimSpineShadow = captureMode == .doublePage ? trimSpineShadow : false
 
             var records: [PageRecord] = []
             var normalizedImages: [UIImage] = []
